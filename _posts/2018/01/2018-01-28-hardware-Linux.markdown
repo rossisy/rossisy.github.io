@@ -4,7 +4,7 @@
 |设备|Linux的文件名|
 |:-:|:-:|
 |SCSI/SATA/USB硬盘|/dev/sd[a-p]|
-|U盘|/dev/sd[a-p](与SATA相同)|
+|U盘|/dev/sd[a-p]\(与SATA相同\)|
 |打印机|25针: /dev/lp[0-2]<br>USB: /dev/usb/lp[0-15]|
 |鼠标|USB: /dev/usb/mouse[0-15]<br>PS2: /dev/psaux|
 |当前鼠标|/dev/mouse|

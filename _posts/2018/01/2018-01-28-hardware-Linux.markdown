@@ -25,6 +25,7 @@ https://www.kernel.org/pub/linux/docs/lanana/device-list/
 
 # 硬盘在Linux中的具体文件名
 ## 1. IDE硬盘
+
 |IDE|Master|Slave|
 |:-:|:-:|:-:|
 |IDE1(Primary)|/dev/hda|/dev/hdb|

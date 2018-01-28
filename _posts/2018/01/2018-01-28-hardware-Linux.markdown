@@ -32,6 +32,6 @@ https://www.kernel.org/pub/linux/docs/lanana/device-list/
 |IDE2(Secondary)|/dev/hdc|/dev/hdd|
 
 ## 2. SATA&USB硬盘
-因为SATA/USB/SCSI等硬盘接口都是使用SCSI模块来驱动的，所以这些接口的硬盘设备文件名都是/dev/sd[a-p]的格式。而SATA/USB硬盘的文件名是根据Linux内核检测到的硬盘的顺序来确定的。
-Linux内核检测的顺序是从SATA插槽到USB接口的，即SATA接口的硬盘的排序要在USB接口的硬盘之前。
+因为SATA/USB/SCSI等硬盘接口都是使用SCSI模块来驱动的，所以这些接口的硬盘设备文件名都是/dev/sd[a-p]的格式。而SATA/USB硬盘的文件名是根据Linux内核检测到的硬盘的顺序来确定的。  
+Linux内核检测的顺序是从SATA插槽到USB接口的，即SATA接口的硬盘的排序要在USB接口的硬盘之前。  
 例：SATA1>SATA2>SATA3>...>SATAn>USB1>USB2>...>USBn，如果计算机有2个SATA硬盘和2个USB硬盘，分别安装在SATA3，SATA5和USB2，USB4，他们在Linux中的设备文件名为/dev/sda，/dev/sdb，/dev/sdc，/dev/sdd

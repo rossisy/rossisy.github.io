@@ -1,3 +1,10 @@
+---
+layout: post
+titil: "Hardware in Linux"
+date: 2018-01-28
+categories: Linux
+---
+
 # 常见硬件在Linux中的表示
 计算机常见硬件设备的Linux文件表示如下：
 

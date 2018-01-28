@@ -1,7 +1,7 @@
 ---
 layout: post
 titil: "Hardware in Linux"
-date: 2018-01-28
+date: 2018-01-28 22:11:00 +0800
 categories: Linux
 ---
 

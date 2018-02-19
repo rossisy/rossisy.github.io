@@ -1,6 +1,6 @@
 ---
 layout: post
-titil: "Directory tree in Linux"
+title: "Directory tree in Linux"
 date: 2018-01-30 22:00:00 +0800
 categories: Linux
 ---

@@ -51,3 +51,6 @@ categories: Linux
 
 ## dirname (strip last component from file name)
 
+## file (determine file type)
+查看文件的类型
+

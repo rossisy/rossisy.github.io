@@ -1,0 +1,94 @@
+---
+layout: post
+title: "shell script 02"
+date: 2018-09-15 10:00:00 +0800
+categories: shell
+---
+# 条件判断式
+## if...then
+单层、简单条件判断式
+syntax:
+if [条件判断式]; then
+    当条件判断式成立时，可以进行的命令工作内容；
+fi
+条件判断式的判断方法，与前一节的介绍相同。如果有多个条件要判别，可以将多个条件写入一个中括号内或用多个中括号来隔开，括号与括号之间以&&或||来隔开。
+例：
+["$yn"=="Y" -o "$yn"=="y"]或
+["$yn"=="Y"] || ["$yn"=="y"]
+
+多重、复杂条件判断式
+一个条件判断（if...else）
+syntax:
+if [条件判断式]; then
+    当条件判断式成立时，可以进行的命令工作内容；
+else
+    当条件判断式不成立时，可以进行的命令工作内容；
+fi
+
+多个条件判断（if...elif...else）
+syntax:
+if [条件判断式一]; then
+    当条件判断式一成立时，可以进行的命令工作内容；
+elif [条件判断式二]; then
+    当条件判断式二成立时，可以进行的命令工作内容；
+else
+    当条件判断式一与二均不成立时，可以进行的命令工作内容；
+fi
+
+## case...esac
+syntax:
+case $变量名称 in
+    "第一个变量内容")
+	    程序段
+		;;
+	"第二个变量内容")
+	    程序段
+		;;
+	*)
+	    不包含第一个变量内容与第二个变量内容的其他程序执行段
+		exit 1
+		;;
+esac
+
+## function功能
+syntax:
+function fname () {
+    程序段
+}
+function也是拥有内置变量的，其内置变量与shell script很类似，函数名称表示$0，而后续接的变量也是以$1，$2来替代的
+
+# 循环（loop）
+## while do done, until do done（不定循环）
+syntax:
+while [ condition ]
+do
+    程序段落
+done
+
+syntax:
+until [condition ]
+do
+    程序段落
+done
+
+## for...do...done (固定循环)
+syntax:
+for var in con1 con2 con3 ...
+do
+    程序段
+done
+
+syntax:
+for (( 初始值;限制值;执行步长 ))
+do
+    程序段
+done
+
+# shell script的追逐与调试
+syntax:
+sh [-nvx] scripts.sh
+参数:
+-n: 不要执行script，仅查询语法的问题；
+-v: 在执行script前，先将script的内容输出到屏幕上；
+-x: 将使用到的script内容显示到屏幕上（这是很有用的参数）
+

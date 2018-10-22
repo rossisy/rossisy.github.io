@@ -1,0 +1,368 @@
+---
+layout: post
+title: "account"
+date: 2018-10-03 10:00:00 +0800
+categories: Linux 
+---
+# 账号及用户组
+## 用户标识符：UID与GID
+ID与账号对应关系存于/etc/passwd中。Linux中每个登录的用户至少都会取得两个ID，一个是用户ID（UserID，简称UID），一个是用户组ID（GroupID，简称GID）。
+
+## 用户账号
+与用户账号有关的两个非常重要的文件：一个是管理用户UID/GID重要参数的/etc/passwd，一个是专门管理密码相关数据的/etc/shadow。
+
+### /etc/passwd文件结构
+每一行都代表一个账号，有很多账号本来就是系统正常运行所必须的，可以简称为系统账号，例如bin，daemon，adm，nobody等，这些账号不可以随意删掉。
+```sh
+roo[root@rossi ~]# head -n 4 /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+[root@rossi ~]#
+```
+每一行都是用":"分隔开，共有7个字段，分别是：
+1. 账号名称
+    用于对应UID
+2. 密码
+    早期UNIX系统的密码就是放在这个字段上，但是因为这个文件的特性是所有的程序都能够读取，这样一来很容易造成密码数据被窃取，因此后来就将这个字段的密码数据改放到/etc/shadow中了，所以这个你会看到一个x
+3. UID
+    用户标识符。
+	UID限制：
+	|ID范围|该ID用户特性|
+	|:-:|:-:|
+	|0(系统管理员)|当UID是0时，代表这个账号是“系统管理员”。所以当你要让其他的账号名称也具有root的权限时，将该账号的UID改为0即可。这也就是说，一个系统上面的系统管理员不见得只有root，不过，不建议由多个账号的UID是0.|
+	|~499(系统账号)|保留给系统使用的ID，其实除了0之外，其他的UID权限与特性并没有不一样。默认500以下的数字让给系统作为保留账号只是一个习惯。由于系统上面启动的服务希望使用较小的权限去运行，因此不希望使用root的身份去执行这些服务，所以我们就得要提供这些运行中程序的所有者账号才行。这些系统账号通常是不可登陆的，所以才会有/sbin/nologin这个特殊的shell存在。根据系统账号的由来，通常系统账号又被分为两种：1~99：由distributions自行创建的系统账号；100~499：若用户有系统账号需求时，可以使用账号UID|
+	|500~65535(可登陆系统)|给一般用户用得。|
+4. GID
+    与/etc/group有关，其实/etc/group与/etc/passwd差不多，只是它是用来规定组名与GID的对应而已
+5. 用户信息说明列
+    这个字段基本上并没有什么重要用途，只是用来解释这个账号的意义而已。不过，如果你提供使用finger的功能时，这个字段可以提供很多的信息。
+6. 主文件夹
+    这是用户的主文件夹，root的主文件夹在/root中，所以当root登陆之后，就会立刻跑到/root目录里面。
+7. shell
+    指定用户登陆系统后默认的shell。
+
+### /etc/shadow文件结构
+```sh
+[root@rossi ~]# head -n 4 /etc/shadow
+root:$6$Yefa9HWtq36sjG7u$kPjnAcQmmUdQRRg2NKBQQVVGVPNSgPpUbLj/Wk.FCDTw0zlHflwgjqEqAVsDoXpjUjgttgVyRfpg7RAVzmkJl0::0:99999:7:::
+bin:*:17632:0:99999:7:::
+daemon:*:17632:0:99999:7:::
+adm:*:17632:0:99999:7:::
+[root@rossi ~]#
+```
+shadow同样以":"作为分隔符，共有9个字段，分别是：
+1. 账号名称
+    由于密码也需要与账号对应。因此，这个文件的第一列就是账号，必须要与/etc/passwd相同才行
+2. 密码
+    这个字段内的数据才是真正的密码，而且是经过编码的密码（加密）。这个文件的默认权限是"-rw-------"或是"-r--------"，即只有root才可以读写。
+3. 最近更新密码的日期
+4. 密码不可被更新的天数（与第三个字段相比）
+5. 密码需要重新更新的天数（与第三个字段相比）
+6. 密码需要更新期限前的警告天数（与第5个字段相比）
+7. 密码过期后的账号宽限时间（密码失效日）（与第5个字段相比）
+8. 账号失效日期
+9. 保留
+
+## 有效与初始用户组：groups，newgrp
+用户组有两个重要的配置文件：/etc/group与/etc/gshadow。
+
+### /etc/group文件结构
+这个文件是记录GID与组名的对应关系的。
+```sh
+[root@rossi ~]# head -n 4 /etc/group
+root:x:0:
+bin:x:1:
+daemon:x:2:
+sys:x:3:
+[root@rossi ~]#
+```
+这个文件的每一行代表一个用户组，也是以冒号":"作为字段的分隔符，共分为四列，每一字段的意义是：
+1. 用户组名称
+2. 用户组密码
+3. GID
+4. 此用户组支持的账号名称
+
+### 有效用户组（effective group）与初始用户组（initial group）
+在/etc/passwd中每一行的第四列有所谓的GID，那个GID就是“初始用户组”（initial group），即当用户登陆系统，立刻就拥有这个用户组的相关权限。
+groups: 有效与支持用户组的查看
+使用groups命令可以查看当前用户支持的用户组。
+gourps命令输出的第一个用户组即为有效用户组（effective group）。
+newgrp: 有效用户组的切换
+
+### /etc/gshadow文件结构
+```sh
+[root@rossi ~]# head -n 4 /etc/gshadow
+root:::
+bin:::
+daemon:::
+sys:::
+[root@rossi ~]#
+```
+这个文件同样还是使用冒号":"来作为字段的分隔字符。要注意其第二个字段，第二个字段是密码列，如果密码列上面是"!"时，表示该用户组不具有用户组管理员。
+
+# 账号管理
+## 新增与删除用户：useradd，相关配置文件，passwd，usermod，userdel
+使用useradd新建用户，密码的给予使用passwd命令。
+### useradd
+syntax:
+useradd [-u UID] [-g 初始用户组] [-G 次要用户组] [-mM] [-c 说明栏] [-d 主文件夹绝对路径] [-s shell] 用户账号名
+参数：
+-u: 后面接的是UID，是一组数字。直接指定一个特定的UID给这个账号
+-g: 后面接的那个用户组名就是initial group。该用户组的GID会被放置到/etc/passwd的第四个字段内。
+-G: 后面接的组名则是这个账号还可以加入的用户组，这个参数会修改/etc/group内的相关数据
+-M: 强制！不要创建用户主文件夹（系统账号默认值）
+-m: 强制！要创建用户主文件夹（一般账号默认值）
+-c: 这个就是/etc/passwd的第五列的说明内容。可以随便我们设置的。
+-d: 指定某个目录成功主文件夹，而不要使用默认值。务必使用绝对路径。
+-r: 创建一个系统的账号，这个账号的UID会有限制（参考/etc/login.defs）
+-s: 后面接一个shell，若没有指定则默认是/bin/bash。
+-e: 后面接一个日期，格式为“YYYY-MM-DD”，此选项可写入shadow第八字段，即账号失效日的设置选项
+-f: 后面接shadow的第七字段选项，指定密码是否会失效。0为立刻失效，-1为永远不失效（密码只会过期而强制在登录时重新设置）
+
+由于使用useradd新增用户时，在/etc/shadow内仅会生成密码参数而不会有加密过的密码数据，因此在创建用户账号时，还需要使用“passwd”来给予密码才算是完成了用户创建的流程。
+
+### useradd参考文件
+查看useradd的默认值：
+```sh
+[root@rossi ~]# useradd -D
+GROUP=100
+HOME=/home
+INACTIVE=-1
+EXPIRE=
+SHELL=/bin/bash
+SKEL=/etc/skel
+CREATE_MAIL_SPOOL=yes
+[root@rossi ~]#
+```
+这些数据其实是由/etc/default/useradd调用出来的。
+GROUP=100: 新建账号的初始用户组使用GID为100
+    在CentOS上默认的用户组为与账号名相同的用户组，即使GROUP设置为100。因为针对用户组的角度有两种不同的机制所致，这两种机制分别是：
+	私有用户组机制: 系统会创建一个与账号一样的用户组给用户作为初始用户组。这种用户组的设置机制会比较有保密性，因为用户都有自己的用户组。
+    公共用户组机制: 就是以GROUP=100这个设置值作为新建值得初始用户组，因此每个账号都属于一个用户组，且默认主文件夹通常的权限会是“drwxr-xr-x”，由于每个账号都属于一个用户组，因此大家都可以互相分享主文件夹之内的数据。
+HOME=/home: 用户主文件夹的基准目录（basedir）
+INACTIVE=-1: 密码过期后是否会失效的设置值
+    这个选项指定的是密码过期后多久时间内还可以使用旧密码登录，如果是0代表密码过期立刻失效，如果是-1则是代表密码永远不会失效，如果是数字，如30，则代表过期30天后才失效
+EXPIRE=: 账号失效的日期
+SHELL=/bin/bash: 默认使用的是shell程序文件名
+SKEL=/etc/skel: 用户主文件夹参考基准目录
+CREATE_MAIL_SPOOL=yes: 创建用户的mailbox
+
+除了这些基本的账号设置值之外，UID/GID还有密码参数就是参考/etc/login.defs。
+login.defs中的主要设置：
+MAIL_DIR: 用户默认邮件信箱放置目录
+PASS_MAX_DAYS: 多久需要更改密码天数
+PASS_MIN_DAYS: 多久不可重新设置密码天数
+PASS_MIN_LEN: 密码最短的字符长度，已被pam模块替代，失去效用
+PASS_WARN_AGE: 密码过期前警告的天数
+UID_MIN: 用户最小的UID，即小于该值的UID为系统保留
+UID_MAX: 用户能够用得最大UID
+GID_MIN: 用户组最小的GID，即小于该值的GID为系统保留
+GID_MAX: 用户组最大的GID
+CREATE_HOME: 在不加-M及-m时，是否主动创建用户主文件夹
+UMASK: 用户主文件夹创建的umask
+USERGROUPS_ENAB: 使用userdel删除时，是否会删除初始用户组
+MD5_CRYPT_ENAB: 密码是否经过MD5的加密机制处理
+
+### passwd
+syntax:
+passwd [-l] [-u] [--stdin] [-S] [-n 日数] [-x 日数] [-w 日数] [-i 日期] 账号
+
+参数:
+--stdin: 可以通过来自前一个管道的数据，作为密码输入，对shell script有帮助
+-l: 是Lock的意思，会将/etc/shadow第二列最前面加上!使密码失效
+-u: 与-l相对，是Unlock的意思
+-S: 列出密码相关参数，即shadow文件内的大部分信息
+-n: 后面接天数，shadow的第4字段，多久不可修改密码天数
+-x: 后面接天数，shadow的第5字段，多久内必须要改动密码
+-w: 后面接天数，shadow的第6字段，密码过期前的警告天数
+-i: 后面接“日期”，shadow的第7字段，密码失效日期
+
+### chage
+syntax:
+chage [-ldEImMW] 账号名
+
+参数:
+-l: 列出该账号的详细密码参数
+-d: 后面接日期，修改shadow的第三字段（最近一次修改密码的日期），格式：YYYY-MM-DD
+-E: 后面接日期，修改shadow的第八字段（账号失效日），格式：YYYY-MM-DD
+-I: 后面接天数，修改shadow的第七字段（密码失效日期）
+-m: 后面接天数，修改shadow的第四字段（密码最短保留天数）
+-M: 后面接天数，修改shadow的第五字段（密码多久需要进行更改）
+-W: 后面接天数，修改shadow的第六字段（密码过期前警告日期）
+
+### usermod
+syntax:
+usermod [-cdegGlsuLU] username
+参数:
+-c: 后面接账号的说明，即/etc/passwd第五列的说明，可以加入一些账号的说明
+-d: 后面接账号的主文件夹，即修改/etc/passwd的第六列
+-e: 后面接日期，格式是YYYY-MM-DD，也就是在/etc/passwd内的第八个字段数据
+-f: 后面接天数，为shadow的第七字段
+-g: 后面接初始用户组，修改/etc/passwd的第四个字段，即GID字段
+-G: 后面接次要用户组，修改这个用户能够支持的用户组，修改的是/etc/group
+-a: 与-G合用可增加次要用户组的支持而非设置
+-l: 后面接账号名称，即修改账号名称，/etc/passwd的第一列
+-s: 后面接shell的实际文件，例如/bin/bash或/bin/csh等
+-u: 后面接UID数字，即/etc/passwd第三列的数据
+-L: 暂时将用户的密码冻结，让他无法登录，其实仅改/etc/shadow的密码
+-U: 将/etc/shadow密码列的!去掉
+
+### userdel
+syntax:
+userdel [-r] username
+参数:
+-r: 连同用户的主文件夹也一起删除
+
+## 用户功能
+### finger
+syntax:
+finger [-s] username
+参数:
+-s: 仅列出用户的账号、全名、终端机代号与登录时间等
+-m: 列出与后面接的账号相同者，而不是利用部分对比（包括全名部分）
+
+### chfn
+syntax:
+chfn [-foph] [账号名]
+参数:
+-f: 后面接完整的大名
+-o: 你办公室的房间号码
+-p: 办公室的电话号码
+-h: 家里的电话号码
+
+### chsh
+syntax:
+chsh [-ls]
+参数:
+-l: 列出目前系统上可用的shell，其实就是/etc/shells的内容
+-s: 设置修改自己的shell
+
+### id
+syntax:
+id [username]
+
+## 新增与删除用户组
+### groupadd
+syntax:
+groupadd [-g gid] [-r] 用户组名
+参数:
+-g: 后面接某个特定的GID，用来直接给予某个GID
+-r: 新建系统用户组。与/etc/login.defs内的GID_MIN有关
+
+### groupmod
+syntax:
+groupmod [-g gid] [-n group_name] 用户组名
+参数:
+-g: 修改既有的GID数字
+-n: 修改既有的组名
+
+### groupdel
+syntax:
+groupdel [groupname]
+
+# 主机具体权限规划：ACL的使用
+ACL是Access Control List的缩写，主要目的是提供传统的owner、group、others的read、write、execute权限之外的具体权限设置。ACL可以针对单一用户、单一文件或目录来进行r、w、x的权限设置，对于需要特殊权限的使用状况非常有帮助。
+ACL主要可以针对以下几方面进行权限控制：
+1. 用户（user）：可以针对用户来设置权限
+2. 用户组（group）：可以针对用户组来设置其权限
+3. 默认属性（mask）：可以在该目录下再新建文件/目录时设置新数据的默认权限
+
+## 启动ACL
+CentOS中是默认启动ACL支持的，可以使用dumpe2fs命令查看硬盘的superblock内容，在Default mount options的设置里是否有acl即可。
+如果系统没有启动ACL支持，可以使用命令mount -o remount,acl /来启动ACL支持
+如果想每次开机都生效，可以修改/etc/fstab文件，将acl加入启动设置中，如：
+```
+UUID=88e58a58-f381-407b-bc27-cf896d63d930 /boot                   xfs     defaults,acl        0 0
+```
+
+### ACL的设置：getfacl, setfacl
+getfacl:
+取得某个文件/目录的ACL设置项目；
+syntax:
+getfacl filename
+参数:
+与setfacl的几乎一致
+使用getfacl获取ACL设置时，其中有一项mask是指acl中可以设置的有效权限，即mask中指定的权限在acl设置中才有效，如果acl设置的权限不在mask中则该项权限的acl设置无效
+
+#### setfacl
+设置某个目录/文件的ACL规定
+syntax:
+setfacl [-bkRd] [{-m|-x} acl参数] 目标文件名
+参数:
+-m: 设置后续的acl参数给文件使用，不可与-x合用
+-x: 删除后续的acl参数，不可与-m合用
+-b: 删除所有的ACL设置参数
+-k: 删除默认的ACL参数
+-R: 递归设置acl，亦即包括子目录都会被设置起来
+-d: 设置默认acl参数，只会对目录有效，在该目录新建的数据会引用此默认值
+
+针对特定用户的ACL设置方式：
+设置规范: “u:[用户账号列表]:[rwx]”，如:
+setfacl -m u:user1:rx 文件名
+如果一个文件被设置了ACL参数后，它的权限部分就会多出一个+号
+
+针对特定用户组的ACL设置方式:
+设置规范: “g:[用户组列表]:[rwx]”，如:
+setfacl -m g:group1:rx 文件名
+
+针对有效权限mask的ACL设置方式:
+设置规范: “m:[rwx]”，如:
+setfacl -m m:r 文件名
+
+针对默认权限的ACL设置方式:
+设置规范: “d:[ug]:用户列表:[rwx]”
+
+# 用户身份切换
+## su
+syntax:
+su [-lm] [-c 命令] [username]
+参数:
+-: 单纯使用-如“su -”，代表使用login-shell的变量文件读取方式来登录系统，若用户名没有，则代表切换为root的身份
+-l: 与-类似，但后面需要加欲切换的用户账号，也是login-shell的方式。
+-m: -m与-p是一样的，表示使用目前的环境设置，而不读取新用户的配置文件
+-c: 仅进行一次命令，所以-c后面可以加上命令
+
+## sudo
+syntax:
+sudo [-b] [-u 新用户账号]
+参数:
+-b: 将后续的命令让系统自行执行，而不与目前的shell产生影响
+-u: 后面可以接欲切换的用户，若无此项则代表切换身份为root
+
+sudo的执行流程:
+1. 当用户执行sudo时，系统于/etc/sudoers文件中查找该用户是否有执行sudo的权限
+2. 若用户具有可执行sudo的权限后，便让用户输入用户自己的密码来确认
+3. 若密码输入成功，便开始进行sudo后续接的命令（但root执行sudo时不需要输入密码）
+4. 若欲切换的身份与执行者身份相同，那也不需要输入密码
+
+使用visudo修改/etc/sudoers文件，因为/etc/sudoers是有语法的，使用visudo修改系统会在结束离开前校验修改后的文件的语法。
+
+/etc/sudoers文件中设置的格式、语法为:
+用户账号 登陆者的来源主机名=(可切换的身份) 可执行的命令
+四个参数的含义分别是:
+1. 用户账号: 系统的哪个账号可以使用sudo这个命令，默认为root这个账号
+2. 登录者的来源主机名: 这个账号由哪台主机连接到本Linux主机，意思是这个账号可能是由哪一台网络主机连接过来的，这个设置值可以指定客户端计算机（信任用户的意思）。默认值root可来自任何一台网络主机
+3. 可切换的身份: 这个账号可以切换成什么身份来执行后续的命令，默认root可以切换成任何人
+4. 可执行的命令: 这个命令请务必使用绝对路径编写。默认root可以切换任何身份且进行任何命令
+ALL在sudoers中是特殊的关键字，代表任何身份、主机或命令的意思。
+
+用户账号的参数，还可以指定用户组，来同时给多人设置sudo的权限，格式与单用户设置时一致，只是在最左边加上%，代表后面接的是一个“用户组”。
+
+使用sudo还可以设置为不需要提供密码的方式：
+```sh
+%wheel    ALL=(ALL)    NOPASSWD:ALL
+```
+NOPASSWD关键字就是设置免除密码输入的。
+
+有限制的命令操作: 可执行的命令，如果要限制用户使用的命令参数，可以使用!号
+```sh
+myuser1    ALL=(root)    !/usr/bin/passwd, /usr/bin/passwd [A-Za-z]*, !/usr/bin/passwd root
+```
+以上代表的意思是，myuser1可以使用sudo执行passwd命令修改其他用户的密码，但是passwd与passwd root这两个除外。
+
+通过别名设置sudoers文件: 别名可以是命令别名、账号别名、主机别名等。使用User_Alias、Cmnd_Alias、Host_Alias设置用户别名，命令别名和来源主机名别名。注意，设置别名时都必须使用全大写的名称。
+
+sudo的时间效力，如果连续两次执行sudo命令的间隔在五分钟之内，那第二次sudo的使用不会再次要求提供密码。
+

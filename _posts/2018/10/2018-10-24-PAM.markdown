@@ -1,0 +1,96 @@
+---
+layout: post
+title: "PAM"
+date: 2018-10-24 10:00:00 +0800
+categories: Linux 
+---
+# 特殊的shell，/sbin/nologin
+使用了/sbin/nologin这个shell的用户即使有了密码，登录时也是无法登录的，因为会出现如下的信息：
+This account is currently not available.
+这里的“无法登录”指的是这个用户无法使用bash或其他shell来登录系统而已，并不是说这个账号就无法使用其他的系统资源。
+
+# PAM模块简介
+为了解决账号密码的同步验证问题，引入了PAM（Pluggable Authentication Modules，嵌入式模块）的机制，PAM可以说是一套应用程序编程接口（Application Programming Interface，API），它提供了一连串的验证机制，只要用户将验证阶段的需求告知PAM后，PAM就能够回复用户验证的结果（成功或失败）。
+
+# PAM模块设置语法
+PAM通过一个与程序相同文件名的配置文件来进行一连串的认证分析需求。以passwd命令为例，当执行passwd后，这个程序调用PAM的流程是：
+1. 用户开始执行/usr/bin/passwd这只程序，并输入密码
+2. passwd调用PAM模块进行验证
+3. PAM模块会到/etc/pam.d/中找寻与程序（passwd）同名的配置文件
+4. 依据/etc/pam.d/passwd内的设置，引用相关的PAM模块逐步进行验证分析
+5. 将验证结果（成功、失败以及其他信息）回传给passwd这个程序
+6. passwd程序会根据PAM回传的结果决定下一个操作（重新输入新密码或者通过验证）
+所以重点其实是/etc/pam.d/里面的配置文件，以及配置文件所调用的PAM模块进行的验证工作。
+在配置文件中，任何#开头的都是批注，而每一行都是一个独立的验证流程，每一行可以区分为三个字段，分别是验证类别（type）、控制标准（flag）、PAM的模块与该模块的参数。
+
+## 验证类型
+验证类型主要分为四种，auth、account、session和password
+
+### auth
+是authentication（认证）的缩写，所以这种类型主要用来检验用户的身份验证，这种类型通常是需要密码来检验的，所以后续接的模块是用来检验用户的身份
+
+### account
+account（账号）则大部分是在进行authorization（授权），这种类型则主要在检验用户是否具有正确的权限，举例来说，当你使用一个过期的密码来登录时，当然就无法正确登录了
+
+### session
+session是会议期间的意思，所以session管理的就是用户在这次登录（或使用这个命令）期间PAM所给予的环境变量。这个类型通常用于记录用户登录与注销时的信息。
+
+### password
+password就是密码。所以这种类别主要用于提供验证的修订工作，举例来说就是修改/更改密码
+
+这四个验证的类型通常是有顺序的，不过也有例外就是了。会有顺序的原因是，先验证身份（auth）后，系统才能够通过用户的身份给予适当的授权与权限设置（account），而且等于与注销期间的环境才需要设置，也才需要记录登录与注销的信息（session）。如果在运行期间需要更改密码时，才给予password的类型。
+
+## 验证的控制标志（control flag）
+验证的控制标志就是“验证通过的标准”，主要也分为四种控制方式：required、requisite、sufficient和optional
+
+### required
+此验证若成功则带有success（成功）的标志，若失败则带有failure的标志，但不论成功或失败都会继续后续的验证流程。由于后续的验证流程可以继续进行，因此相当有利于数据的登录日志（log），这也是PAM最常使用required的原因
+
+### requisite
+若验证失败则立刻回报原程序failure的标志，并终止后续的验证流程。若验证成功则带有success的标志并继续后续的验证流程。这个与required最大的区别就在于失败的时候还要不要继续验证下去。由于requisite是失败就终止，因此失败时所产生的PAM信息就无法通过后续的模块来记录了
+
+### sufficient
+若验证成功则立刻回传success给原程序，并终止后续的验证流程；若验证失败则带有failure标志并继续后续的验证流程。这与requisite刚好相反
+
+### optional
+这个模块控件目的大多是在显示信息而已，并不是用在验证方面的
+
+# 常用模块简介
+
+## pam_securetty.so
+限制系统管理员（root）只能够从安全的（secure）终端机登录。安全的终端机设置，在/etc/securetty这个文件中
+
+## pam_nologin.so
+限制一般用户是否能够登录主机只用。当/etc/nologin这个文件存在时，则所有一般用户均无法再登录系统了，所以在正常的情况下，这个文件应该是不能存在于系统中的。但这个模块对root以及已经登录系统中的一般账号并没有影响
+
+## pam_selinux.so
+SELinux是个针对程序来进行详细管理权限的功能。由于SELinux会影响到用户执行程序的权限，因此我们利用PAM模块，将SELinux暂时关闭，等到验证通过后再予以启动
+
+## pam_console.so
+当系统出现某些问题，或者是某些时刻你需要使用特殊的终端接口（例如RS232之类的终端连接设备）登录主机时，这个模块可以帮助处理一些文件权限的问题，让用户可以通过特殊终端接口（console）顺利登录系统
+
+## pam_loginuid.so
+系统账号与一般账号的UID是不同的，一般账号UID均大于500，因此，为了验证用户的UID真的是我们所需要的数值，可以使用这个模块来进行规范
+
+## pam_env.so
+用例设置环境变量的一个模块，如果你有需要额外的环境变量设置，可以参考/etc/security/pam_env.conf这个文件的详细说明
+
+## pam_UNIX.so
+这个模块可以用于验证阶段的认证功能，可以用于授权阶段的账号许可证管理，可以用于会议阶段的日志文件记录等，甚至可以用于密码更新阶段的检验
+
+## pam_cracklib.so
+用来检验密码的强度！包括密码是否在字典中，密码输入几次都失败就断掉此次连接等功能，都是这模块提供的
+
+## pam_limits.so
+ulimit是由这个模块提供的能力，更多详细的设置可以参考/etc/security/limits.conf内的说明
+
+# 其他相关文件
+/etc/security下相关的配置文件
+
+## /etc/security/limits.conf
+ulimit功能中，除了修改用户的~/.bashrc配置文件外，系统管理员可以统一通过PAM来管理。那就是/etc/security/limits.conf这个文件的设置。
+
+## /var/log/secure, /var/log/messages
+如果是发生任何无法登录或是产生一些无法预期的错误时，PAM模块都会将数据记载在/var/log/secure当中
+
+

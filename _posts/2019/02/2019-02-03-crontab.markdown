@@ -1,0 +1,167 @@
+---
+layout: post
+title: "crontab"
+date: 2019-02-03 10:00:00 +0800
+categories: Linux 
+---
+
+# Linux工作调度的种类：at，cron
+
+## at
+at是个开业处理仅执行一次就结束调度的命令，不过要执行at时，必须要有atd这个服务的支持才行。
+
+## crontab
+crontab这个命令所设置的工作将会循环一直进行下去，可循环的时间为分钟、小时、每周、每月或每年等。crontab除了可以使用命令执行外，也可编辑/etc/crontab来支持。至于让crontab可以生效的服务则是crond这个服务。
+
+# Linux上常见的例行性工作
+
+## 进行日志文件的轮替（log rotate）
+
+## 日志文件分析logwatch的任务
+
+## 新建locate的数据库
+
+## whatis数据库的建立
+
+## RPM软件日志文件的新建
+
+## 删除临时文件
+
+## 与网络服务有关的分析行为
+
+# 仅执行一次的工作调度
+在Linux上负责单一工作调度的服务是atd。并非所有的Linux distributions都默认会把它打开，所以有时我们必须要手动将它启动才行，启动的方法很简单：/etc/init.d/atd restart
+再设置一下开机时就启动这个服务：chkconfig atd on
+
+## at的运行方式
+使用at这个命令来生成索要运行的工作，并将这个工作以文本文件的方式写入/var/spool/at/目录内，该工作便能等待atd这个服务的取用与执行了。
+不过，并不是所有的用户都可以进行at工作调度，可以利用/etc/at.allow与/etc/at.deny这两个文件来进行at的使用限制。加上这两个文件后，at的工作情况其实是这样的：
+1. 先寻找/etc/at.allow这个文件，写在这个文件中的用户才能使用at，没有在这个文件中的用户则不能使用at（即使没有写在at.deny当中）
+2. 如果/etc/at.allow不存在，就寻找/etc/at.deny这个文件，若写在这个at.deny的用户则不能使用at，而没有在这个at.deny文件中的用户就可以使用at了
+3. 如果两个文件都不存在，那么只有root可以使用at这个命令
+
+## at的使用
+at的命令运行非常简单，将at加上一个时间即可，基本的语法如下：
+at [-mldv] TIME
+at -c 工作号码
+参数：
+-m：当at的工作完成后，即使没有输出信息，以email通知用户该工作已完成
+-l：at -l相当于atq，列出目前系统上的所有该用户的at调度
+-d：at -d相当于atrm，可以取消一个在at调度中的工作
+-v：可以使用较明显的时间格式列出at调度中的任务列表
+-c：可以列出后面接的该项工作的实际命令内容
+TIME：时间格式，这里可以定义什么时候要进行at这项工作的时间，格式有：
+	HH:MM
+	在今日的HH:MM时刻进行，若已超过该时刻，则明天的HH:MM进行此工作
+	HH:MM YYYY-MM-DD
+	HH:MM[am|pm] [Month] [Date]
+	强制规定在某年某月的某一天的特殊时刻进行该工作
+	HH:MM[am|pm] + number [minutes|hours|days|weeks]
+	就是说在某个时间点“再加几个时间后”才进行
+
+使用at命令进入at shell环境，输入完多重命令后，使用[ctrl] + d结束。
+在at shell环境中最好使用绝对路径来执行命令。
+
+## batch
+指定工作在系统在系统较闲的时候才进行，可以使用batch，batch也是利用at来进行命令的执行，所以其语法与at一致
+batch指定的工作任务只有在CPU工作负载小于0.8的时候才执行。负载的意思是在单一时间点CPU所负载的工作数量，而不是CPU的使用率。
+
+# 循环执行的例行性工作调度
+循环执行的例行性工作调度是有cron（crond）这个系统服务来控制的。因为Linux系统上原本就有非常多的例行性工作，因此这个系统服务是默认启动的，另外，由于用户自己也可以进行例行性工作调度，所以，Linux也提供用户控制例行性工作调度的命令：crontab。
+
+## crontab权限设置
+与at类似，crontab也可以限制使用的用户账号。
+/etc/cron.allow
+将可以使用crontab的账号写入其中，若不在这个文件内的用户则不可使用crontab
+/etc/cron.deny
+将不可以使用crontab的账号写入其中，若未记录到这个文件当中的用户，就可以使用crontab
+当用户使用crontab这个命令来新建工作调度之后，该项工作就会被记录到/var/spool/cron里面去，而且是以账号来作为判别的。例如，用户user1使用crontab后，他的工作会被记录到/var/spool/cron/user1里去。另外，cron执行的每一项工作都会被记录到/var/log/cron这个日志文件中。
+
+## crontab语法
+crontab [-u username] [-l|-e|-r]
+参数：
+-u：只有root才能进行这个任务，也即帮其他用户新建/删除crontab工作调度
+-e：编辑crontab的工作内容
+-l：查阅crontab的工作内容
+-r：删除所有的crontab的工作内容，若仅要删除一项，请使用-e去编辑
+
+使用-e编辑例行性命令，进入编辑界面，一个工作一行，每行的格式都是包含6个字段，这些字段的意义如下：
+|代表意义|分钟|小时|日期|月份|周|命令|
+|:-:|:-|:-|:-|:-|:-|:-|
+|数字范围|0~59|0~23|1~31|1~12|0~7|执行的命令|
+其中周的数字为0或7时，都代表的星期天的意思。另外还有些辅助的字符，大概就下面这些
+|特殊字符|代表意义|
+|:-:|:-|
+|*(星号)|代表任何时刻都接受的意思|
+|,(逗号)|代表分隔时段的意思|
+|-(减号)|代表一段时间范围内|
+|/n(斜线)|那个n代表数字，即是每隔n单位间隔的意思|
+
+## 系统配置文件：/etc/crontab
+系统的例行性任务编辑，需要编辑/etc/crontab这个文件。需要注意的是，crontab -e这个crontab其实是/usr/bin/crontab这个执行文件，但是/etc/crontab可是一个“纯文本文件”。
+基本上，cron这个服务的最低检测限制是“分钟”，所以cron会每分钟去读取一次/etc/crontab与/var/spool/cron里面的数据内容，因此，只要你编辑完/etc/crontab并保存后，那么cron的设置就自动会来执行。如果crontab是读到内存当中的，想要立即执行cron的设置，就需要重新启动crond这个服务(/etc/init.d/crondrestart)
+```
+[root@www ~]# cat /etc/crontab
+SHELL=/bin/bash 
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+HOME=/
+# run-parts
+01 * * * * root run-parts /etc/cron.hourly
+02 4 * * * root run-parts /etc/cron.daily
+22 4 * * 0 root run-parts /etc/cron.weekly
+42 4 1 * * root run-parts /etc/cron.monthly
+```
+MAILTO=root
+这个选项是说，当/etc/crontab这个文件中的例行性工作的命令发生错误时，或者是该工作的执行结果有STDOUT/STDERR时，会将错误信息或者是屏幕显示的信息传给谁，默认是由系统直接寄发一封mail给root。
+PATH=......
+执行文件的查找路径，使用默认的路径设置就已经足够
+run-parts
+是一个bash script，如果直接进入/usr/bin/run-parts看，会发现这个命令会将后面接的“目录”内所有文件找出来执行。由于有了run-parts这个script的辅助，因此/etc/crontab这个文件里支持两种执行命令的方式，一种是直接执行命令，一种则是以目录来规划。
+
+## 注意事项
+资源分配不均的问题
+当大量使用crontab的时候，总是会有问题发生的，最严重的问题就是系统资源分配不均的问题，这个时候就必须要分别设置。
+取消不要的输出选项
+当有执行结果或者是执行的选项中有输出的数据时，该数据将会mail给MAILTO设置的账号，如果有一个调度一直出错，那么你就会一直收到错误信息。这时，可以直接以“命令重定向”将输出的结果输出到/dev/null这个垃圾桶就好了
+安全的检验
+多数木马植入都是以例行命令的方式植入的，所以可以由检查/var/log/cron的内容来查看是否有非法设置的cron被执行了
+周与日、月不可同时并存
+不可以使用“几月几号且为星期几”的模式设置时间调度
+
+## 可唤醒停机期间的工作任务
+anacron存在的目的就在于处理非24小时一直启动的Linux系统的crontab的执行。所以anacron并不能指定何时执行某项任务，而是以天为单位或者是在开机后立刻进行anacron的操作，它会去检测停机期间应该进行但是并没有进行的crontab任务，并将该任务执行一遍，然后anacron就会自动停止了。
+anacron会分析现在的时间与时间记录文件所记载的上次执行anacron的时间，如果有区别，那就是在某些时刻没有进行crontab。此时anacron就会开始执行未进行的crontab任务了。所以anacron其实也是通过crontab来运行的，因此anacron运行的时间通常有两个，一个是系统开机期间运行，一个是写入crontab的调度中。这样才能够在特定时间分析系统未进行的crontab工作
+
+### anacron与/etc/anacrontab
+anacron语法：
+anacron [-sfn] [job]...
+anacron -u [job]...
+参数：
+-s：开始连续执行各项工作（job），会依据时间记录文件的数据判断是否进行
+-f：强制进行，而不去判断时间记录文件的时间戳
+-n：立刻进行未进行的任务，而不延迟（delay）等待时间
+-u：仅更新时间积累文件的时间戳，不进行任何工作
+job：由/etc/anacrontab定义的各项工作名称
+
+```
+[root@www ~]# cat /etc/anacrontab
+SHELL=/bin/sh
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+1    65    cron.daily    run-parts    /etc/cron.daily
+7    70    cron.weekly   run-parts    /etc/cron.weekly
+30   75    cron.monthly  run-parts    /etc/cron.monthly
+```
+天数    延迟时间    工作名称定义    实际要进行的命令
+天数单位为天；延迟时间单位为分钟；工作名称定义可自定义；命令则通常与crontab的设置相同
+
+### anacron运行情况
+若执行“anacron -s cron.daily”，它会这样运行：
+1. 由/etc/anacrontab分析到cron.daily这项工作名称的天数为1天
+2. 由/var/spool/anacron/cron.daily取出最近一次执行anacron的时间戳
+3. 由上个步骤与目前的时间比较，若差异天数为1天以上（含1天），就准备进行命令
+4. 若准备进行命令，根据/etc/anacrontab的设置将延迟65分钟
+5. 延迟时间过后，开始执行后续命令，即“run-parts /etc/cron.daily”这串命令
+6. 执行完毕后，anacron程序结束
+

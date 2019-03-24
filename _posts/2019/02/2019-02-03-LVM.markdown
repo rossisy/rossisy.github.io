@@ -1,0 +1,28 @@
+---
+layout: post
+title: "LVM"
+date: 2019-02-03 10:00:00 +0800
+categories: Linux 
+---
+
+# 什么是LVM：PV，PE，VG
+LVM的全名是Logical Volume Manager，中文可以翻译作逻辑卷管理器。LVM的做法是将几个物理的分区（或是磁盘）通过软件组合成为一块看起来是独立的大磁盘（VG）然后将这块大磁盘再经过分成为可使用分区（LV），最终就能够挂载使用了。
+
+## PhysicalVolume，PV，物理卷
+我们实际的分区需要调整系统标识符（system ID）成为8e（LVM的标识符），然后再经过pvcreate的命令将它转成LVM最底层的物理卷（PV），之后才能够将这些PV加以利用，调整system ID的方法就是通过fdisk。
+
+## Volume Group，VG，卷用户组
+所谓的LVM大磁盘就是讲许多PV整合成这个VG，所以VG就是LVM组合起来的大磁盘。那么这个大磁盘最大可以达到多少容量呢？因为每个VG最多仅能包含65534个PE而已，如果使用LVM默认的参数，则一个VG最大可达256GB的容量。
+
+## Physical Extend，PE，物理扩展块
+LVM默认使用4MB的PE块，而LVM的VG最多仅能含有65534个PE，因此默认的LVM VG会有4M * 65534 / (1024M/G) = 256G。这个PE是整个LVM最小的存储块，也就是说，其实我们的文件数据都是由写入PE来处理的。
+
+## Logical Volume，LV，逻辑卷
+最终的VG还会被切成LV，这个LV就是最后可以被格式化使用的类似分区。
+
+## 数据写入机制
+### 线性模式（linear）
+如果将/dev/hda1，/dev/hdb1两个分区加入到VG中，并且整个VG只有一个LV时，那么所谓的线性模式就是当/dev/hda1的容量用完之后，/dev/hdb1的硬盘才会被使用到，这也是被建议的模式。
+
+### 交错模式（triped）
+就是将一条数据拆分成两部分，分别写入/dev/hda1与/dev/hdb1的意思。
